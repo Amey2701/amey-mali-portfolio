@@ -76,25 +76,48 @@ export default function Page() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [dark, setDark] = useState(false);
   const [formStatus, setFormStatus] = useState("");
+  const [formOk, setFormOk] = useState(false);
+  const [sending, setSending] = useState(false);
   const close = () => setMenuOpen(false);
   useEffect(() => {
     document.documentElement.dataset.theme = dark ? "dark" : "light";
   }, [dark]);
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // Save the form first: React clears event.currentTarget after an await
+    const formEl = event.currentTarget;
+    const data = Object.fromEntries(new FormData(formEl));
+
+    setSending(true);
+    setFormOk(false);
     setFormStatus("Sending…");
-    const form = new FormData(event.currentTarget);
-    const response = await fetch("/api/contact", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(Object.fromEntries(form)),
-    });
-    setFormStatus(
-      response.ok
-        ? "Message sent. Thank you."
-        : "Please check your details and try again.",
-    );
-    if (response.ok) event.currentTarget.reset();
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/contact`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        },
+      );
+
+      if (response.ok) {
+        formEl.reset(); // clears name, email and message
+        setFormOk(true);
+        setFormStatus("Message sent. Thank you, I'll get back to you soon.");
+        setTimeout(() => setFormStatus(""), 6000);
+      } else {
+        const result = await response.json().catch(() => null);
+        setFormStatus(
+          result?.error || "Please check your details and try again.",
+        );
+      }
+    } catch {
+      setFormStatus("Could not reach the server. Please try again.");
+    } finally {
+      setSending(false);
+    }
   }
   return (
     <main id="top">
@@ -353,10 +376,14 @@ export default function Page() {
               placeholder="Your message"
               aria-label="Your message"
             />
-            <button className="pill-button dark" type="submit">
-              Send message ↗
+            <button className="pill-button dark" type="submit" disabled={sending}>
+              {sending ? "Sending…" : "Send message ↗"}
             </button>
-            {formStatus && <span role="status">{formStatus}</span>}
+            {formStatus && (
+              <span role="status" className={formOk ? "form-success" : ""}>
+                {formStatus}
+              </span>
+            )}
           </form>
         </div>
       </section>

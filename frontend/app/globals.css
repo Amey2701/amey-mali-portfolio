@@ -26,3 +26,6 @@
 .resume-card ul { list-style: disc; padding-left: 18px; margin: 0; }
 .resume-card li { padding-left: 4px; }
 .resume-card li::marker { color: var(--ink); }
+.contact-form button:disabled { opacity:.6; cursor:not-allowed; }
+.contact-form span.form-success { color:#2e7d32; font-weight:700; }
+:root[data-theme='dark'] .contact-form span.form-success { color:#7ed384; }
