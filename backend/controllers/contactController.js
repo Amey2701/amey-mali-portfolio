@@ -1,4 +1,3 @@
-
 const nodemailer = require("nodemailer");
 const Message = require("../models/Message");
 
@@ -17,14 +16,16 @@ function escapeHtml(value) {
 const transporter =
   process.env.SMTP_USER && process.env.SMTP_PASS
     ? nodemailer.createTransport({
-        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
         auth: {
           user: process.env.SMTP_USER,
           pass: process.env.SMTP_PASS,
         },
-        connectionTimeout: 5000,
-        greetingTimeout: 5000,
-        socketTimeout: 10000,
+        connectionTimeout: 20000,
+        greetingTimeout: 20000,
+        socketTimeout: 30000,
       })
     : null;
 
