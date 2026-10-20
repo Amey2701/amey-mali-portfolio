@@ -9,6 +9,9 @@ const downloadRoutes = require("./routes/download");
 
 const app = express();
 
+// Trust the Render reverse proxy so client IPs are identified correctly.
+app.set("trust proxy", 1);
+
 const PORT = process.env.PORT || 5001;
 
 const FRONTEND_URL =
