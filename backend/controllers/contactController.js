@@ -1,3 +1,4 @@
+
 const nodemailer = require("nodemailer");
 const Message = require("../models/Message");
 
@@ -12,20 +13,55 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-function getTransporter() {
-  const { SMTP_USER, SMTP_PASS } = process.env;
+// Create the transporter once instead of creating it for every request.
+const transporter =
+  process.env.SMTP_USER && process.env.SMTP_PASS
+    ? nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.SMTP_USER,
+          pass: process.env.SMTP_PASS,
+        },
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 10000,
+      })
+    : null;
 
-  if (!SMTP_USER || !SMTP_PASS) {
-    return null;
+async function sendNotification(savedMessage, name, email, message) {
+  if (!transporter) {
+    console.warn("Message saved; Gmail SMTP is not configured.");
+    return;
   }
 
-  return nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: SMTP_USER,
-      pass: SMTP_PASS,
-    },
-  });
+  const safeName = escapeHtml(name);
+  const safeEmail = escapeHtml(email);
+  const safeMessage = escapeHtml(message).replace(/\n/g, "<br>");
+
+  try {
+    await transporter.sendMail({
+      from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
+      to: process.env.CONTACT_TO || process.env.SMTP_USER,
+      replyTo: email,
+      subject: `New portfolio message from ${name}`,
+      text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
+      html: `
+        <h2>New portfolio message</h2>
+        <p><strong>Name:</strong> ${safeName}</p>
+        <p><strong>Email:</strong> ${safeEmail}</p>
+        <p><strong>Message:</strong></p>
+        <p>${safeMessage}</p>
+      `,
+    });
+
+    await Message.findByIdAndUpdate(savedMessage._id, {
+      emailSent: true,
+    });
+
+    console.log("Contact notification email sent.");
+  } catch (error) {
+    console.error("Contact notification failed:", error.message);
+  }
 }
 
 async function submitContact(req, res) {
@@ -57,7 +93,6 @@ async function submitContact(req, res) {
     });
   }
 
-  // Save to MongoDB before attempting to send the email.
   let savedMessage;
 
   try {
@@ -75,57 +110,16 @@ async function submitContact(req, res) {
     });
   }
 
-  // A saved message remains in MongoDB even if Gmail fails.
-  try {
-    const transporter = getTransporter();
+  // Respond immediately after MongoDB confirms the message is saved.
+  res.status(201).json({
+    ok: true,
+    saved: true,
+    emailSent: false,
+  });
 
-    if (!transporter) {
-      console.warn("Message saved; Gmail SMTP is not configured.");
-      return res.status(201).json({
-        ok: true,
-        saved: true,
-        emailSent: false,
-      });
-    }
-
-    const safeName = escapeHtml(name);
-    const safeEmail = escapeHtml(email);
-    const safeMessage = escapeHtml(message).replace(/\n/g, "<br>");
-
-    await transporter.sendMail({
-      from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
-      to: process.env.CONTACT_TO || process.env.SMTP_USER,
-      replyTo: email,
-      subject: `New portfolio message from ${name}`,
-      text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
-      html: `
-        <h2>New portfolio message</h2>
-        <p><strong>Name:</strong> ${safeName}</p>
-        <p><strong>Email:</strong> ${safeEmail}</p>
-        <p><strong>Message:</strong></p>
-        <p>${safeMessage}</p>
-      `,
-    });
-
-    await Message.findByIdAndUpdate(savedMessage._id, {
-      emailSent: true,
-    });
-
-    return res.status(201).json({
-      ok: true,
-      saved: true,
-      emailSent: true,
-    });
-  } catch (error) {
-    console.error("Email notification failed:", error.message);
-
-    // The database save already succeeded.
-    return res.status(201).json({
-      ok: true,
-      saved: true,
-      emailSent: false,
-    });
-  }
+  // Attempt email delivery after sending the HTTP response.
+  // This is best-effort and is not a durable background job.
+  void sendNotification(savedMessage, name, email, message);
 }
 
 module.exports = { submitContact };
