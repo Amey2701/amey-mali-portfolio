@@ -5,16 +5,31 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const contactRoutes = require("./routes/contact");
+const downloadRoutes = require("./routes/download");
 
 const app = express();
 
 const PORT = process.env.PORT || 5001;
+
 const FRONTEND_URL =
   process.env.FRONTEND_URL || "http://localhost:3000";
 
+const allowedOrigins = [
+  FRONTEND_URL,
+  "http://localhost:3000",
+  "https://amey-mali-portfolio.web.app",
+  "https://amey-mali-portfolio.firebaseapp.com",
+];
+
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked origin: ${origin}`));
+    },
   })
 );
 
@@ -23,13 +38,15 @@ app.use(express.json({ limit: "10kb" }));
 app.get("/api/health", (req, res) => {
   res.json({
     ok: true,
-    database: mongoose.connection.readyState === 1
-      ? "connected"
-      : "disconnected",
+    database:
+      mongoose.connection.readyState === 1
+        ? "connected"
+        : "disconnected",
   });
 });
 
 app.use("/api/contact", contactRoutes);
+app.use("/api/download", downloadRoutes);
 
 async function startServer() {
   if (!process.env.MONGODB_URI) {
