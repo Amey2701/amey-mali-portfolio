@@ -1,10 +1,15 @@
-const nodemailer = require("nodemailer");
+
+const { Resend } = require("resend");
 const Message = require("../models/Message");
 
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+const resend = process.env.RESEND_API_KEY
+  ? new Resend(process.env.RESEND_API_KEY)
+  : null;
+
 function escapeHtml(value) {
-  return value
+  return String(value)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -12,26 +17,9 @@ function escapeHtml(value) {
     .replace(/'/g, "&#039;");
 }
 
-// Create the transporter once instead of creating it for every request.
-const transporter =
-  process.env.SMTP_USER && process.env.SMTP_PASS
-    ? nodemailer.createTransport({
-        host: "smtp.gmail.com",
-        port: 465,
-        secure: true,
-        auth: {
-          user: process.env.SMTP_USER,
-          pass: process.env.SMTP_PASS,
-        },
-        connectionTimeout: 20000,
-        greetingTimeout: 20000,
-        socketTimeout: 30000,
-      })
-    : null;
-
 async function sendNotification(savedMessage, name, email, message) {
-  if (!transporter) {
-    console.warn("Message saved; Gmail SMTP is not configured.");
+  if (!resend) {
+    console.error("Contact notification failed: RESEND_API_KEY is not configured.");
     return;
   }
 
@@ -40,9 +28,9 @@ async function sendNotification(savedMessage, name, email, message) {
   const safeMessage = escapeHtml(message).replace(/\n/g, "<br>");
 
   try {
-    await transporter.sendMail({
-      from: `"Portfolio Contact" <${process.env.SMTP_USER}>`,
-      to: process.env.CONTACT_TO || process.env.SMTP_USER,
+    const result = await resend.emails.send({
+      from: process.env.CONTACT_FROM || "onboarding@resend.dev",
+      to: process.env.CONTACT_TO || "ameymali2@gmail.com",
       replyTo: email,
       subject: `New portfolio message from ${name}`,
       text: `Name: ${name}\nEmail: ${email}\n\n${message}`,
@@ -55,11 +43,15 @@ async function sendNotification(savedMessage, name, email, message) {
       `,
     });
 
+    if (result.error) {
+      throw new Error(result.error.message || "Resend email failed");
+    }
+
     await Message.findByIdAndUpdate(savedMessage._id, {
       emailSent: true,
     });
 
-    console.log("Contact notification email sent.");
+    console.log("Contact notification accepted by Resend.");
   } catch (error) {
     console.error("Contact notification failed:", error.message);
   }
@@ -111,15 +103,13 @@ async function submitContact(req, res) {
     });
   }
 
-  // Respond immediately after MongoDB confirms the message is saved.
   res.status(201).json({
     ok: true,
     saved: true,
     emailSent: false,
   });
 
-  // Attempt email delivery after sending the HTTP response.
-  // This is best-effort and is not a durable background job.
+  // Best-effort email attempt after the response.
   void sendNotification(savedMessage, name, email, message);
 }
 
