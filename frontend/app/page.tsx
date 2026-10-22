@@ -261,7 +261,6 @@ export default function Page() {
   const [messageLen, setMessageLen] = useState(0);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const paletteInputRef = useRef<HTMLInputElement>(null);
-
   const activeSection = useActiveSection(NAV_ITEMS.map((n) => n.id));
   const progress = useScrollProgress();
   const clock = useLiveClock();
