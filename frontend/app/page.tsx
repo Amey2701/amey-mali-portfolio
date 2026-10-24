@@ -107,6 +107,7 @@ const NAV_ITEMS = [
   { id: "about", label: "About" },
   { id: "strengths", label: "Strengths" },
   { id: "experience", label: "Experience" },
+  { id: "projects", label: "Projects" },
   { id: "skills", label: "Skills" },
   { id: "education", label: "Education" },
 ] as const;
@@ -535,7 +536,7 @@ export default function Page() {
           </div>
           <div className="hero-photo">
             <img
-              src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/amey-JezmfTCHXYO6fiBwXUmA8iHfIVaDm3.jpeg"
+              src="/amey.png"
               alt="Amey Mali in a suit"
               loading="eager"
             />
@@ -630,15 +631,226 @@ export default function Page() {
         </div>
       </section>
 
+      {/* ============================ PROJECTS ============================ */}
+      <section className="resume-section project-section reveal" id="projects">
+        <p className="kicker">04 — Project</p>
+
+        <div className="two-col">
+          <h2>MediaShippers</h2>
+          <div>
+            <p>
+              A media and content management platform covering 4,000+ titles. I
+              contributed junior-level frontend and backend tasks on the React
+              UI and the Node.js / Express API.
+            </p>
+            <p className="project-role">
+              <strong>Role:</strong> Junior full-stack contributor (frontend +
+              backend)
+            </p>
+            <div className="skills-list">
+              <span className="skill-chip">React</span>
+              <span className="skill-chip">Node.js</span>
+              <span className="skill-chip">Express</span>
+              <span className="skill-chip">MongoDB</span>
+              <span className="skill-chip">REST APIs</span>
+              <span className="skill-chip">Git &amp; GitHub</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="project-stat">
+          <strong>4,000+</strong>
+          <span>Titles on the platform</span>
+        </div>
+
+        <div className="two-col project-block">
+          <h3>Problem — The engineering context.</h3>
+          <p>
+            A media platform needs to show and manage thousands of title
+            records. Users need to browse them in a clear interface, and that
+            interface needs a dependable API behind it to fetch and update the
+            data.
+          </p>
+        </div>
+
+        <div className="two-col project-block">
+          <h3>Approach — Clear responsibilities. Connected layers.</h3>
+          <div>
+            <p>
+              The platform uses React for the interface, Node.js with Express
+              for the API, and MongoDB for application data. My work sat at the
+              two ends of that chain: building and fixing screens on the
+              frontend, and adding or adjusting endpoints on the backend.
+            </p>
+            <h4>My scope of work</h4>
+            <ul className="project-scope">
+              <li>Building and fixing React UI components</li>
+              <li>Connecting screens to the API with fetch calls</li>
+              <li>Writing and updating Express REST endpoints</li>
+              <li>Basic MongoDB queries for title records</li>
+              <li>Form validation and error states</li>
+              <li>Bug fixes and code-review feedback via Git</li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="project-block">
+          <h3>Architecture — How the pieces connect.</h3>
+          <div className="project-arch">
+            <span className="project-arch-label">
+              MediaShippers / logical layers
+            </span>
+            <div className="project-arch-row">
+              <div className="project-arch-wrap">
+                <div className="project-arch-node">
+                  <small>01</small>
+                  <strong>React</strong>
+                  <span>Media management UI</span>
+                </div>
+                <span className="project-arch-arrow" aria-hidden="true">→</span>
+              </div>
+              <div className="project-arch-wrap">
+                <div className="project-arch-node">
+                  <small>02</small>
+                  <strong>Node / Express</strong>
+                  <span>REST API endpoints</span>
+                </div>
+                <span className="project-arch-arrow" aria-hidden="true">→</span>
+              </div>
+              <div className="project-arch-wrap">
+                <div className="project-arch-node">
+                  <small>03</small>
+                  <strong>MongoDB</strong>
+                  <span>Title and app records</span>
+                </div>
+              </div>
+            </div>
+            <p className="project-note">
+              Simplified view of the layers I worked in. Other platform
+              infrastructure was handled by senior teammates.
+            </p>
+          </div>
+        </div>
+
+        <div className="project-block">
+          <h3>Challenges &amp; solutions — Where the engineering happens.</h3>
+          <div className="project-challenges">
+            <details open>
+              <summary>01 / Showing a large list of titles clearly</summary>
+              <dl>
+                <dt>Challenge</dt>
+                <dd>
+                  With thousands of titles, a screen that loads everything at
+                  once feels slow and is hard to scan.
+                </dd>
+                <dt>Implementation</dt>
+                <dd>
+                  Built list views in React that request data in smaller pages
+                  from the API, with loading and empty states.
+                </dd>
+                <dt>Trade-off</dt>
+                <dd className="project-tradeoff">
+                  Paging keeps screens fast, but needs the frontend and backend
+                  to agree on how pages are requested.
+                </dd>
+              </dl>
+            </details>
+
+            <details>
+              <summary>02 / Keeping frontend and API in sync</summary>
+              <dl>
+                <dt>Challenge</dt>
+                <dd>
+                  When an endpoint response changes, the screens that use it can
+                  break without warning.
+                </dd>
+                <dt>Implementation</dt>
+                <dd>
+                  Wrote and adjusted Express endpoints, then updated the
+                  matching React calls and checked the responses by hand.
+                </dd>
+                <dt>Trade-off</dt>
+                <dd className="project-tradeoff">
+                  Small, consistent response shapes are easier to consume, but
+                  changing them means updating every screen that relies on them.
+                </dd>
+              </dl>
+            </details>
+
+            <details>
+              <summary>03 / Handling bad input and failed requests</summary>
+              <dl>
+                <dt>Challenge</dt>
+                <dd>
+                  Forms and API calls fail in ordinary ways: empty fields, wrong
+                  formats, a server that doesn&apos;t respond.
+                </dd>
+                <dt>Implementation</dt>
+                <dd>
+                  Added validation on the form and on the endpoint, and showed
+                  readable error messages in the UI.
+                </dd>
+                <dt>Trade-off</dt>
+                <dd className="project-tradeoff">
+                  Validating in both places repeats some logic, but the server
+                  must never trust the browser alone.
+                </dd>
+              </dl>
+            </details>
+          </div>
+        </div>
+
+        <div className="two-col project-block">
+          <h3>Impact — Scope you can assess.</h3>
+          <div>
+            <ul className="project-scope single">
+              <li>
+                Contributed frontend and backend tasks to a media and content
+                platform covering 4,000+ titles.
+              </li>
+              <li>
+                Worked across React components, Express endpoints, and MongoDB
+                queries as part of a team.
+              </li>
+            </ul>
+            <p className="project-note">
+              These points describe the scope of my contribution. They are not
+              performance benchmarks.
+            </p>
+          </div>
+        </div>
+
+        <div className="two-col project-block">
+          <h3>What I learned — Engineering takeaways.</h3>
+          <ol className="project-learned">
+            <li>
+              A feature is only finished when the screen, the API, and the data
+              all agree with each other.
+            </li>
+            <li>
+              Reading a larger codebase and asking good questions is as valuable
+              as writing new code.
+            </li>
+          </ol>
+        </div>
+      </section>
+
       {/* ============================ SKILLS ============================ */}
       <section className="resume-section toolkit-section reveal" id="skills">
-        <p className="kicker">04 — Full-stack toolkit</p>
+        <p className="kicker">05 — Technical skills</p>
         <div className="two-col">
-          <h2>
-            How I build
-            <br />
-            <span>end to end.</span>
-          </h2>
+          <div className="toolkit-heading">
+            <h2>
+              How I build
+              <br />
+              <span>end to end.</span>
+            </h2>
+            <p className="toolkit-lede">
+              A working toolkit built through production experience — from
+              crafting React interfaces to wiring Express endpoints and querying
+              data. Each area below reflects hands-on work, not just familiarity.
+            </p>
+          </div>
           <div>
             <div className="stack-grid">
               {stack.map((group) => (
@@ -657,13 +869,19 @@ export default function Page() {
                 </div>
               ))}
             </div>
-            <h3 className="soft-title">How I work with people</h3>
-            <div className="skills-list">
-              {softSkills.map((s) => (
-                <span className="skill-chip highlighted" key={s}>
-                  {s}
-                </span>
-              ))}
+
+            <div className="soft-block">
+              <div className="soft-head">
+                <h3 className="soft-title">How I work with people</h3>
+                <span className="soft-count">{softSkills.length}</span>
+              </div>
+              <div className="skills-list">
+                {softSkills.map((s) => (
+                  <span className="skill-chip highlighted" key={s}>
+                    {s}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -674,7 +892,7 @@ export default function Page() {
         className="resume-section education-section reveal"
         id="education"
       >
-        <p className="kicker">05 — Education &amp; certifications</p>
+        <p className="kicker">06 — Education &amp; certifications</p>
 
         <div className="education-grid">
           <article>
@@ -720,7 +938,7 @@ export default function Page() {
       <section className="contact-section reveal">
         <div className="contact-grid">
           <div className="contact-info">
-            <p className="kicker">06 — Let&apos;s connect</p>
+            <p className="kicker">07 — Let&apos;s connect</p>
             <h2>
               Let&apos;s build
               <br />

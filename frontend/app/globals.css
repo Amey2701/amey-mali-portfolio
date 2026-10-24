@@ -1269,10 +1269,21 @@ a:focus-visible, button:focus-visible { outline: 3px solid var(--yellow); outlin
 /* ---- Full-stack toolkit ---- */
 section[id] { scroll-margin-top: 70px; }
 
-.toolkit-section h2 {
+.toolkit-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-self: start;
   position: sticky;
   top: 110px;
-  align-self: start;
+}
+
+.toolkit-lede {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--muted);
+  max-width: 440px;
+  margin: 0;
 }
 
 .stack-grid {
@@ -1335,16 +1346,136 @@ section[id] { scroll-margin-top: 70px; }
   background: var(--paper);
 }
 
-.soft-title {
-  font-size: 20px;
-  margin-bottom: 16px;
+/* ---- Soft skills block ---- */
+.soft-block {
+  margin-top: 8px;
   padding-top: 28px;
   border-top: 1px solid var(--line);
 }
 
+.soft-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.soft-title {
+  font-size: 20px;
+  letter-spacing: -.02em;
+  margin: 0;
+}
+
+.soft-count {
+  display: grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--yellow) 35%, transparent);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.soft-block .skills-list {
+  gap: 9px;
+}
+
+.soft-block .skill-chip.highlighted {
+  background: var(--yellow);
+  border-color: var(--ink);
+  font-weight: 500;
+  transition: transform .15s ease, background .15s ease;
+}
+.soft-block .skill-chip.highlighted:hover {
+  transform: translateY(-2px);
+  background: var(--ink);
+  color: var(--yellow);
+}
+
 @media (max-width: 900px) {
-  .toolkit-section h2 { position: static; }
+  .toolkit-heading { position: static; gap: 18px; }
 }
 @media (max-width: 700px) {
   .stack-grid { grid-template-columns: 1fr; }
+  .stack-group { padding: 20px 18px 22px; }
+  .toolkit-lede { font-size: 15px; }
+  .soft-title { font-size: 18px; }
+}
+
+/* ============================================================
+   PROJECT SECTION
+   ============================================================ */
+
+.project-section .project-role { margin: 1rem 0 .75rem; }
+
+.project-stat {
+  display: flex; flex-direction: column; gap: .25rem;
+  margin: 2rem 0; padding: 1.5rem;
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 12px;
+}
+.project-stat strong { font-size: clamp(2rem, 5vw, 3rem); line-height: 1; }
+.project-stat span { opacity: .7; font-size: .9rem; }
+
+.project-block {
+  margin-top: 2.5rem; padding-top: 2rem;
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+}
+.project-block h3 { font-size: 1.25rem; margin: 0 0 1rem; }
+.project-block h4 { margin: 1.5rem 0 .5rem; font-size: 1rem; }
+
+.project-scope {
+  list-style: none; padding: 0; margin: 0;
+  display: grid; gap: .5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.project-scope.single { grid-template-columns: 1fr; }
+.project-scope li::before { content: "•"; margin-right: .5rem; opacity: .6; }
+
+.project-arch {
+  border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+  border-radius: 12px; padding: 1.25rem;
+}
+.project-arch-label { font-size: .75rem; opacity: .7; letter-spacing: .04em; }
+.project-arch-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: .75rem; margin: 1rem 0; }
+.project-arch-wrap { display: flex; align-items: center; gap: .75rem; flex: 1 1 180px; }
+.project-arch-node {
+  flex: 1; display: flex; flex-direction: column; gap: .2rem;
+  padding: .9rem 1rem;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 8px;
+}
+.project-arch-node small { opacity: .6; }
+.project-arch-node span { font-size: .8rem; opacity: .7; }
+.project-note { font-size: .8rem; opacity: .65; margin-top: .75rem; }
+
+.project-challenges details {
+  border-top: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+  padding: 1rem 0;
+}
+.project-challenges summary { cursor: pointer; font-weight: 600; list-style: none; }
+.project-challenges summary::-webkit-details-marker { display: none; }
+.project-challenges summary::after { content: "+"; float: right; }
+.project-challenges details[open] summary::after { content: "–"; }
+.project-challenges summary:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.project-challenges dl {
+  display: grid; grid-template-columns: 9rem 1fr;
+  gap: .75rem 1.5rem; margin: 1rem 0 0;
+}
+.project-challenges dt { font-size: .85rem; opacity: .7; }
+.project-challenges dd { margin: 0; }
+.project-tradeoff {
+  padding-left: 1rem;
+  border-left: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+}
+
+.project-learned { margin: 0; padding-left: 1.25rem; display: grid; gap: .75rem; }
+
+@media (max-width: 720px) {
+  .project-scope { grid-template-columns: 1fr; }
+  .project-challenges dl { grid-template-columns: 1fr; gap: .25rem; }
+  .project-challenges dd { margin-bottom: .75rem; }
 }
