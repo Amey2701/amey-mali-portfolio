@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { API_BASE_URL } from "@/lib/api";
+
 /* ------------------------------------------------------------------ */
 /*  DATA                                                               */
 /* ------------------------------------------------------------------ */
@@ -110,7 +111,80 @@ const NAV_ITEMS = [
   { id: "projects", label: "Projects" },
   { id: "skills", label: "Skills" },
   { id: "education", label: "Education" },
+  { id: "contact", label: "Contact" },
 ] as const;
+
+// Stable array, so useActiveSection doesn't rebuild its observer every render
+const SECTION_IDS: readonly string[] = NAV_ITEMS.map((n) => n.id);
+
+const MESSAGE_MAX = 2000;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** 1 → "01", 10 → "10" (old `0{i + 1}` would show "010") */
+const pad = (n: number) => String(n).padStart(2, "0");
+
+type FieldName = "name" | "email" | "message";
+type FieldErrors = Partial<Record<FieldName, string>>;
+
+function validateContact(values: Record<FieldName, string>): FieldErrors {
+  const errors: FieldErrors = {};
+  if (!values.name) errors.name = "Please enter your name.";
+  if (!values.email) errors.email = "Please enter your email.";
+  else if (!EMAIL_RE.test(values.email))
+    errors.email = "That email address doesn’t look right.";
+  if (!values.message) errors.message = "Please write a short message.";
+  else if (values.message.length > MESSAGE_MAX)
+    errors.message = `Please keep it under ${MESSAGE_MAX} characters.`;
+  return errors;
+}
+
+function SearchIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+    </svg>
+  );
+}
+
+function SunIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </svg>
+  );
+}
 
 /* ------------------------------------------------------------------ */
 /*  HOOKS                                                              */
@@ -169,7 +243,35 @@ function useActiveSection(ids: readonly string[]) {
   return active;
 }
 
-/** Scroll progress from 0 → 1. */
+/** NEW: progress bar updates the DOM directly — no page re-renders. */
+function useScrollProgressBar() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      const el = ref.current;
+      if (!el) return;
+      const doc = document.documentElement;
+      const max = doc.scrollHeight - window.innerHeight;
+      el.style.transform = `scaleX(${max > 0 ? Math.min(window.scrollY / max, 1) : 0})`;
+    };
+    const onScroll = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  return ref;
+}
+
+/* OLD (re-rendered the page on every scroll frame): Scroll progress from 0 → 1.
 function useScrollProgress() {
   const [progress, setProgress] = useState(0);
   useEffect(() => {
@@ -192,6 +294,7 @@ function useScrollProgress() {
   }, []);
   return progress;
 }
+*/
 
 /** Typewriter for the hero tagline. */
 function useTypewriter(text: string, speed = 26, startDelay = 600) {
@@ -227,7 +330,7 @@ function useTypewriter(text: string, speed = 26, startDelay = 600) {
   return { displayed, done };
 }
 
-/** Live clock (HH:MM in user's local timezone). */
+/* OLD (value was never displayed, but re-rendered the page every 30s): Live clock.
 function useLiveClock() {
   const [time, setTime] = useState("");
   useEffect(() => {
@@ -246,6 +349,7 @@ function useLiveClock() {
   }, []);
   return time;
 }
+*/
 
 /* ------------------------------------------------------------------ */
 /*  PAGE                                                               */
@@ -260,11 +364,18 @@ export default function Page() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [messageLen, setMessageLen] = useState(0);
-  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  // OLD: const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [modKey, setModKey] = useState("Ctrl");
   const paletteInputRef = useRef<HTMLInputElement>(null);
-  const activeSection = useActiveSection(NAV_ITEMS.map((n) => n.id));
-  const progress = useScrollProgress();
-  const clock = useLiveClock();
+  const lastFocusRef = useRef<HTMLElement | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // OLD: const activeSection = useActiveSection(NAV_ITEMS.map((n) => n.id));
+  const activeSection = useActiveSection(SECTION_IDS);
+  // OLD: const progress = useScrollProgress();
+  const progressRef = useScrollProgressBar();
+  // OLD: const clock = useLiveClock();
 
   const heroTagline =
     "Jr. React Developer with 1.9+ years of experience building a B2B marketplace and an enterprise insurance platform — and explaining them in plain language to the people who use them.";
@@ -275,46 +386,142 @@ export default function Page() {
 
   const close = useCallback(() => setMenuOpen(false), []);
 
-  /* Theme persistence */
+  // OLD (overwrote the saved theme with "light" on every load):
+  // /* Theme persistence */
+  // useEffect(() => {
+  //   document.documentElement.dataset.theme = dark ? "dark" : "light";
+  //   try {
+  //     localStorage.setItem("theme", dark ? "dark" : "light");
+  //   } catch {
+  //     /* noop */
+  //   }
+  // }, [dark]);
+  //
+  // /* Restore theme on mount */
+  // useEffect(() => {
+  //   try {
+  //     const stored = localStorage.getItem("theme");
+  //     if (stored === "dark") setDark(true);
+  //   } catch {
+  //     /* noop */
+  //   }
+  // }, []);
+
+  /* Restore theme on mount: saved choice → else system setting */
   useEffect(() => {
-    document.documentElement.dataset.theme = dark ? "dark" : "light";
     try {
-      localStorage.setItem("theme", dark ? "dark" : "light");
+      const stored = localStorage.getItem("theme");
+      if (stored === "dark" || stored === "light") setDark(stored === "dark");
+      else setDark(window.matchMedia("(prefers-color-scheme: dark)").matches);
+    } catch {
+      /* noop */
+    }
+    if (/Mac|iPhone|iPad|iPod/i.test(navigator.userAgent)) setModKey("⌘");
+  }, []);
+
+  /* Apply theme to <html> */
+  useEffect(() => {
+    const root = document.documentElement;
+    root.dataset.theme = dark ? "dark" : "light";
+    root.style.colorScheme = dark ? "dark" : "light";
+  }, [dark]);
+
+  /* Save only when the user actually toggles */
+  const toggleTheme = useCallback(() => {
+    const next = !dark;
+    setDark(next);
+    try {
+      localStorage.setItem("theme", next ? "dark" : "light");
     } catch {
       /* noop */
     }
   }, [dark]);
 
-  /* Restore theme on mount */
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("theme");
-      if (stored === "dark") setDark(true);
-    } catch {
-      /* noop */
-    }
+  // OLD:
+  // /* ⌘K / Ctrl+K opens palette */
+  // useEffect(() => {
+  //   const onKey = (e: KeyboardEvent) => {
+  //     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+  //       e.preventDefault();
+  //       setPaletteOpen((v) => !v);
+  //     }
+  //     if (e.key === "Escape") setPaletteOpen(false);
+  //   };
+  //   window.addEventListener("keydown", onKey);
+  //   return () => window.removeEventListener("keydown", onKey);
+  // }, []);
+  //
+  // /* Focus palette input when opened */
+  // useEffect(() => {
+  //   if (paletteOpen) {
+  //     setPaletteQuery("");
+  //     setTimeout(() => paletteInputRef.current?.focus(), 20);
+  //   }
+  // }, [paletteOpen]);
+
+  /* Palette open/close — focus goes back where it was on close */
+  const openPalette = useCallback(() => {
+    lastFocusRef.current = document.activeElement as HTMLElement | null;
+    setPaletteQuery("");
+    setActiveIndex(0);
+    setMenuOpen(false);
+    setPaletteOpen(true);
   }, []);
 
-  /* ⌘K / Ctrl+K opens palette */
+  const closePalette = useCallback(() => {
+    setPaletteOpen(false);
+    lastFocusRef.current?.focus?.();
+  }, []);
+
+  /* ⌘K / Ctrl+K toggles palette; Escape closes palette AND mobile menu */
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setPaletteOpen((v) => !v);
+        if (paletteOpen) closePalette();
+        else openPalette();
+        return;
       }
-      if (e.key === "Escape") setPaletteOpen(false);
+      if (e.key === "Escape") {
+        if (paletteOpen) closePalette();
+        setMenuOpen(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [paletteOpen, openPalette, closePalette]);
 
   /* Focus palette input when opened */
   useEffect(() => {
-    if (paletteOpen) {
-      setPaletteQuery("");
-      setTimeout(() => paletteInputRef.current?.focus(), 20);
-    }
+    if (!paletteOpen) return;
+    const id = requestAnimationFrame(() => paletteInputRef.current?.focus());
+    return () => cancelAnimationFrame(id);
   }, [paletteOpen]);
+
+  /* Stop the page behind scrolling while menu or palette is open */
+  useEffect(() => {
+    document.body.style.overflow = menuOpen || paletteOpen ? "hidden" : "";
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [menuOpen, paletteOpen]);
+
+  /* Close mobile menu if the screen is resized/rotated to desktop width */
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 901px)");
+    const onChange = (e: MediaQueryListEvent) => {
+      if (e.matches) setMenuOpen(false);
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  /* Clear pending "message sent" timer on unmount */
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   /* Custom cursor glow (desktop, motion-safe only) */
   useEffect(() => {
@@ -343,12 +550,41 @@ export default function Page() {
     };
   }, []);
 
+  /* Validate one field (on blur, or while fixing an error) */
+  function checkField(name: FieldName, value: string) {
+    const sample: Record<FieldName, string> = {
+      name: "x",
+      email: "x@x.co",
+      message: "x",
+    };
+    sample[name] = value.trim();
+    const message = validateContact(sample)[name];
+    setErrors((prev) => ({ ...prev, [name]: message }));
+  }
+
   /* Contact form */
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formEl = event.currentTarget;
-    const data = Object.fromEntries(new FormData(formEl));
+    // OLD: const data = Object.fromEntries(new FormData(formEl));
+    const fd = new FormData(formEl);
+    const data: Record<FieldName, string> = {
+      name: String(fd.get("name") ?? "").trim(),
+      email: String(fd.get("email") ?? "").trim(),
+      message: String(fd.get("message") ?? "").trim(),
+    };
 
+    const found = validateContact(data);
+    setErrors(found);
+    const firstInvalid = (Object.keys(found) as FieldName[])[0];
+    if (firstInvalid) {
+      setFormOk(false);
+      setFormStatus("Please fix the highlighted fields.");
+      (formEl.elements.namedItem(firstInvalid) as HTMLElement | null)?.focus();
+      return;
+    }
+
+    if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
     setSending(true);
     setFormOk(false);
     setFormStatus("Sending…");
@@ -363,10 +599,12 @@ export default function Page() {
       if (response.ok) {
         formEl.reset();
         setMessageLen(0);
-        setTouched({});
+        // OLD: setTouched({});
+        setErrors({});
         setFormOk(true);
         setFormStatus("Message sent. Thank you — I'll get back to you soon.");
-        setTimeout(() => setFormStatus(""), 6000);
+        // OLD: setTimeout(() => setFormStatus(""), 6000);
+        statusTimerRef.current = setTimeout(() => setFormStatus(""), 6000);
       } else {
         const result = await response.json().catch(() => null);
         setFormStatus(
@@ -389,7 +627,7 @@ export default function Page() {
         label: `Go to ${n.label}`,
         hint: "Section",
       })),
-      { id: "contact", label: "Go to Contact", hint: "Section" },
+      // OLD (Contact is now in NAV_ITEMS): { id: "contact", label: "Go to Contact", hint: "Section" },
       { id: "email", label: "Email Amey", hint: "ameymali2@gmail.com" },
       {
         id: "linkedin",
@@ -402,16 +640,34 @@ export default function Page() {
         label: "Download resume",
         hint: "Amey_Mali_Resume.pdf",
       },
+      {
+        id: "theme",
+        label: dark ? "Switch to light theme" : "Switch to dark theme",
+        hint: "Appearance",
+      },
     ];
     if (!q) return items;
     return items.filter(
       (i) =>
         i.label.toLowerCase().includes(q) || i.hint.toLowerCase().includes(q),
     );
-  }, [paletteQuery]);
+  }, [paletteQuery, dark]);
+
+  /* Keep the arrow-key highlighted item visible */
+  useEffect(() => {
+    if (!paletteOpen) return;
+    document
+      .getElementById(`palette-opt-${activeIndex}`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex, paletteOpen]);
 
   function runPaletteAction(id: string) {
-    setPaletteOpen(false);
+    // OLD: setPaletteOpen(false);
+    closePalette();
+    if (id === "theme") {
+      toggleTheme();
+      return;
+    }
     if (id === "email") {
       window.location.href = "mailto:ameymali2@gmail.com";
     } else if (id === "linkedin") {
@@ -444,12 +700,13 @@ export default function Page() {
 
   return (
     <main id="top" className="page">
+      <a className="skip-link" href="#about">
+        Skip to content
+      </a>
+
       {/* Scroll progress bar */}
-      <div
-        className="scroll-progress"
-        style={{ transform: `scaleX(${progress})` }}
-        aria-hidden="true"
-      />
+      {/* OLD: style={{ transform: `scaleX(${progress})` }} */}
+      <div ref={progressRef} className="scroll-progress" aria-hidden="true" />
 
       {/* Cursor glow */}
       <div id="cursor-glow" className="cursor-glow" aria-hidden="true" />
@@ -459,7 +716,11 @@ export default function Page() {
         <a className="mini-mark" href="#top" aria-label="Amey Mali home">
           AM
         </a>
-        <nav className={menuOpen ? "open" : ""} aria-label="Main navigation">
+        <nav
+          id="primary-nav"
+          className={menuOpen ? "open" : ""}
+          aria-label="Main navigation"
+        >
           {NAV_ITEMS.map((item) => (
             <a
               key={item.id}
@@ -474,10 +735,32 @@ export default function Page() {
         </nav>
         <div className="header-tools">
           <button
+            type="button"
+            className="kbd-btn"
+            onClick={openPalette}
+            aria-label="Open quick search"
+            aria-keyshortcuts="Control+K Meta+K"
+          >
+            <SearchIcon />
+            <kbd>{modKey} K</kbd>
+          </button>
+          <button
+            type="button"
+            className="theme-toggle"
+            onClick={toggleTheme}
+            aria-label={dark ? "Switch to light theme" : "Switch to dark theme"}
+            aria-pressed={dark}
+          >
+            {dark ? <SunIcon /> : <MoonIcon />}
+          </button>
+          {/* OLD aria-label: "Toggle navigation" */}
+          <button
+            type="button"
             className="menu-toggle"
             onClick={() => setMenuOpen((v) => !v)}
             aria-expanded={menuOpen}
-            aria-label="Toggle navigation"
+            aria-controls="primary-nav"
+            aria-label={menuOpen ? "Close navigation" : "Open navigation"}
           >
             <span />
             <span />
@@ -497,6 +780,7 @@ export default function Page() {
               <br />
               MALI
             </h1>
+            {/* OLD:
             <p className="hero-subtitle" aria-live="polite">
               {typewritten}
               {!typingDone && (
@@ -504,6 +788,17 @@ export default function Page() {
                   ▌
                 </span>
               )}
+            </p>
+            */}
+            <p className="hero-subtitle">
+              <span className="sr-only">{heroTagline}</span>
+              <span className="type-wrap" aria-hidden="true">
+                <span className="type-ghost">{heroTagline}</span>
+                <span>
+                  {typewritten}
+                  {!typingDone && <span className="type-caret">▌</span>}
+                </span>
+              </span>
             </p>
             <div className="hero-actions">
               <a className="pill-button dark" href="#experience">
@@ -535,11 +830,7 @@ export default function Page() {
             </div>
           </div>
           <div className="hero-photo">
-            <img
-              src="/amey.png"
-              alt="Amey Mali in a suit"
-              loading="eager"
-            />
+            <img src="/amey.png" alt="Amey Mali in a suit" loading="eager" />
             <span className="photo-label">JR. REACT DEVELOPER</span>
           </div>
         </div>
@@ -586,7 +877,8 @@ export default function Page() {
           <div className="strength-list">
             {strengths.map(([title, text], i) => (
               <article key={title}>
-                <span>0{i + 1}</span>
+                {/* OLD: <span>0{i + 1}</span> */}
+                <span aria-hidden="true">{pad(i + 1)}</span>
                 <div>
                   <h3>{title}</h3>
                   <p>{text}</p>
@@ -611,14 +903,17 @@ export default function Page() {
                 <div className="card-top">
                   <div>
                     <span className="card-index">
-                      0{i + 1} · {item.location}
+                      {/* OLD: 0{i + 1} · {item.location} */}
+                      {pad(i + 1)} · {item.location}
                     </span>
                     <h3>{item.company}</h3>
                     <p className="role-line">
                       {item.role} · {item.period}
                     </p>
                   </div>
-                  <span className="card-arrow">↗</span>
+                  <span className="card-arrow" aria-hidden="true">
+                    ↗
+                  </span>
                 </div>
                 <ul>
                   {item.bullets.map((b) => (
@@ -707,7 +1002,9 @@ export default function Page() {
                   <strong>React</strong>
                   <span>Media management UI</span>
                 </div>
-                <span className="project-arch-arrow" aria-hidden="true">→</span>
+                <span className="project-arch-arrow" aria-hidden="true">
+                  →
+                </span>
               </div>
               <div className="project-arch-wrap">
                 <div className="project-arch-node">
@@ -715,7 +1012,9 @@ export default function Page() {
                   <strong>Node / Express</strong>
                   <span>REST API endpoints</span>
                 </div>
-                <span className="project-arch-arrow" aria-hidden="true">→</span>
+                <span className="project-arch-arrow" aria-hidden="true">
+                  →
+                </span>
               </div>
               <div className="project-arch-wrap">
                 <div className="project-arch-node">
@@ -848,7 +1147,8 @@ export default function Page() {
             <p className="toolkit-lede">
               A working toolkit built through production experience — from
               crafting React interfaces to wiring Express endpoints and querying
-              data. Each area below reflects hands-on work, not just familiarity.
+              data. Each area below reflects hands-on work, not just
+              familiarity.
             </p>
           </div>
           <div>
@@ -935,7 +1235,8 @@ export default function Page() {
       </section>
 
       {/* ============================ CONTACT ============================ */}
-      <section className="contact-section reveal">
+      {/* OLD: <section className="contact-section reveal"> */}
+      <section className="contact-section reveal" id="contact">
         <div className="contact-grid">
           <div className="contact-info">
             <p className="kicker">07 — Let&apos;s connect</p>
@@ -951,6 +1252,7 @@ export default function Page() {
           </div>
 
           <form className="contact-form" onSubmit={sendMessage} noValidate>
+            {/* OLD:
             <div className="field">
               <input
                 name="name"
@@ -987,6 +1289,98 @@ export default function Page() {
                 onChange={(e) => setMessageLen(e.target.value.length)}
               />
             </div>
+            */}
+            <div className={`field${errors.name ? " has-error" : ""}`}>
+              <label htmlFor="cf-name" className="sr-only">
+                Your name
+              </label>
+              <input
+                id="cf-name"
+                name="name"
+                type="text"
+                required
+                maxLength={100}
+                autoComplete="name"
+                placeholder="Your name"
+                aria-invalid={errors.name ? true : undefined}
+                aria-describedby={errors.name ? "cf-name-error" : undefined}
+                onBlur={(e) => {
+                  if (e.target.value.trim()) checkField("name", e.target.value);
+                }}
+                onChange={(e) => {
+                  if (errors.name) checkField("name", e.target.value);
+                }}
+              />
+              {errors.name && (
+                <span id="cf-name-error" className="field-error">
+                  {errors.name}
+                </span>
+              )}
+            </div>
+            <div className={`field${errors.email ? " has-error" : ""}`}>
+              <label htmlFor="cf-email" className="sr-only">
+                Your email
+              </label>
+              <input
+                id="cf-email"
+                name="email"
+                type="email"
+                inputMode="email"
+                required
+                maxLength={150}
+                autoComplete="email"
+                placeholder="Your email"
+                aria-invalid={errors.email ? true : undefined}
+                aria-describedby={errors.email ? "cf-email-error" : undefined}
+                onBlur={(e) => {
+                  if (e.target.value.trim())
+                    checkField("email", e.target.value);
+                }}
+                onChange={(e) => {
+                  if (errors.email) checkField("email", e.target.value);
+                }}
+              />
+              {errors.email && (
+                <span id="cf-email-error" className="field-error">
+                  {errors.email}
+                </span>
+              )}
+            </div>
+            <div className={`field${errors.message ? " has-error" : ""}`}>
+              <label htmlFor="cf-message" className="sr-only">
+                Your message
+              </label>
+              <textarea
+                id="cf-message"
+                name="message"
+                required
+                rows={5}
+                maxLength={MESSAGE_MAX}
+                placeholder="Your message"
+                aria-invalid={errors.message ? true : undefined}
+                aria-describedby={
+                  errors.message
+                    ? "cf-message-error cf-message-count"
+                    : "cf-message-count"
+                }
+                onChange={(e) => {
+                  setMessageLen(e.target.value.length);
+                  if (errors.message) checkField("message", e.target.value);
+                }}
+              />
+              {errors.message && (
+                <span id="cf-message-error" className="field-error">
+                  {errors.message}
+                </span>
+              )}
+              <span id="cf-message-count" className="field-counter">
+                {messageLen}/{MESSAGE_MAX}
+              </span>
+            </div>
+            <p className="form-note">
+              Your details are only used to reply to you. I usually respond
+              within a day or two.
+            </p>
             <button
               className="pill-button dark send-btn"
               type="submit"
@@ -994,8 +1388,20 @@ export default function Page() {
             >
               {sending ? "Sending…" : "Send message ↗"}
             </button>
+            {/* OLD:
             {formStatus && (
               <span role="status" className={formOk ? "form-success" : ""}>
+                {formStatus}
+              </span>
+            )}
+            */}
+            {formStatus && (
+              <span
+                role={!formOk && !sending ? "alert" : "status"}
+                className={
+                  formOk ? "form-success" : sending ? "" : "form-error"
+                }
+              >
                 {formStatus}
               </span>
             )}
@@ -1007,6 +1413,7 @@ export default function Page() {
         <span>© {new Date().getFullYear()} Amey Mali</span>
         <div>
           <button
+            type="button"
             className="footer-link"
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
           >
@@ -1023,7 +1430,8 @@ export default function Page() {
           aria-modal="true"
           aria-label="Command palette"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setPaletteOpen(false);
+            // OLD: if (e.target === e.currentTarget) setPaletteOpen(false);
+            if (e.target === e.currentTarget) closePalette();
           }}
         >
           <div className="palette">
@@ -1032,21 +1440,50 @@ export default function Page() {
               className="palette-input"
               placeholder="Type a command or section…"
               value={paletteQuery}
-              onChange={(e) => setPaletteQuery(e.target.value)}
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="palette-list"
+              aria-autocomplete="list"
+              aria-activedescendant={
+                paletteResults[activeIndex]
+                  ? `palette-opt-${activeIndex}`
+                  : undefined
+              }
+              onChange={(e) => {
+                setPaletteQuery(e.target.value);
+                setActiveIndex(0);
+              }}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && paletteResults[0]) {
-                  runPaletteAction(paletteResults[0].id);
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setActiveIndex((i) =>
+                    Math.min(i + 1, Math.max(paletteResults.length - 1, 0)),
+                  );
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setActiveIndex((i) => Math.max(i - 1, 0));
+                } else if (e.key === "Enter") {
+                  const item = paletteResults[activeIndex];
+                  if (item) runPaletteAction(item.id);
                 }
               }}
             />
-            <ul className="palette-results">
+            <ul id="palette-list" role="listbox" className="palette-results">
               {paletteResults.length === 0 && (
                 <li className="palette-empty">No matches</li>
               )}
-              {paletteResults.map((r) => (
-                <li key={r.id}>
+              {paletteResults.map((r, i) => (
+                <li
+                  key={r.id}
+                  id={`palette-opt-${i}`}
+                  role="option"
+                  aria-selected={i === activeIndex}
+                >
                   <button
-                    className="palette-item"
+                    type="button"
+                    tabIndex={-1}
+                    className={`palette-item${i === activeIndex ? " is-active" : ""}`}
+                    onMouseEnter={() => setActiveIndex(i)}
                     onClick={() => runPaletteAction(r.id)}
                   >
                     <span>{r.label}</span>
